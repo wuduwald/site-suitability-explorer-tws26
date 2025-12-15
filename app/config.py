@@ -337,3 +337,35 @@ STATE_NAME_LOOKUP = {
     "WY": "Wyoming",
 }
 
+# -----------------------------
+# MAP SUITABILITY CLASSES
+# -----------------------------
+
+SUITABILITY_CLASSES = [
+    {
+        "key": "good",
+        "label": "Suitable",
+        "min": 0.7,
+        "max": 1.01,
+        "color": "#2ECC71",  # green
+        "size": 18,
+    },
+    {
+        "key": "mid",
+        "label": "Marginal",
+        "min": 0.4,
+        "max": 0.7,
+        "color": "#F1C40F",  # yellow
+        "size": 12,
+    },
+    {
+        "key": "poor",
+        "label": "Poor",
+        "min": 0.1,
+        "max": 0.4,
+        "color": "#E74C3C",  # red
+        "size": 8,
+    },
+]
+
+# Values <= 0.1 are considered unsuitable and not plotted

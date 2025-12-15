@@ -10,13 +10,15 @@ Responsibilities:
 - Normalize values per week
 - Compute ranks (optional)
 - Compute mean value per site (planning / prioritisation)
+- Classify suitability values (for maps / alerts)
 
 NO visualization logic
-NO thresholds
-NO suitability rules
+NO thresholds hardcoded (config-driven)
+NO Streamlit / Plotly imports
 """
 
 import pandas as pd
+from app.config import SUITABILITY_CLASSES
 
 
 # -----------------------------
@@ -71,7 +73,7 @@ def build_site_week_matrix(
     """
     Build a site × week matrix WITHOUT dropping sparse sites.
 
-    This preserves:
+    Preserves:
     - all sites present in df
     - all weeks present in df
     - rows that are entirely NaN
@@ -96,7 +98,6 @@ def build_site_week_matrix(
         ["week_bin"]
     )
 
-    # Pivot (do NOT use pivot_table)
     matrix = df.pivot(
         index="site_name",
         columns="week_bin",
@@ -162,14 +163,9 @@ def mean_per_site(
     """
     Compute mean value per site across selected weeks.
 
-    This is intended for:
+    Intended for:
     - prioritising sites over a season
-    - answering questions like "Which 20 sites are best overall?"
-
-    Returns
-    -------
-    pd.Series
-        Indexed by site_name, sorted descending (best first)
+    - selecting top-N sites
     """
     data = df
 
@@ -185,3 +181,22 @@ def mean_per_site(
         .mean()
         .sort_values(ascending=False)
     )
+
+
+# -----------------------------
+# Suitability classification
+# -----------------------------
+def classify_suitability(value: float) -> dict | None:
+    """
+    Return suitability class config for a value.
+
+    Returns None if unsuitable.
+    """
+    if value is None or value <= 0:
+        return None
+
+    for cls in SUITABILITY_CLASSES:
+        if cls["min"] <= value < cls["max"]:
+            return cls
+
+    return None
