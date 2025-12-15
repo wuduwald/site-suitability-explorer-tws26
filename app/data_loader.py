@@ -58,7 +58,7 @@ def load_sites() -> pd.DataFrame:
     sites = pd.read_csv(path)
     sites = _normalize_columns(sites)
 
-    required = {"site_id", "site_name"}
+    required = {"site_id", "site_name", "state"}
     missing = required - set(sites.columns)
     if missing:
         raise ValueError(f"sites_fixed.csv missing columns: {missing}")
@@ -90,7 +90,9 @@ def load_weekly_metrics(window: str) -> pd.DataFrame:
     Load raw weekly environmental metrics for a given time window.
     """
     if window not in _METRIC_DATASETS:
-        raise ValueError(f"Unknown window '{window}'. Choose from {list(_METRIC_DATASETS)}")
+        raise ValueError(
+            f"Unknown window '{window}'. Choose from {list(_METRIC_DATASETS)}"
+        )
 
     path = METRICS_DIR / _METRIC_DATASETS[window]
     if not path.exists():
@@ -119,7 +121,9 @@ def load_weekly_spatial(window: str) -> pd.DataFrame:
     Load derived weekly spatial suitability data for a given time window.
     """
     if window not in _SPATIAL_DATASETS:
-        raise ValueError(f"Unknown window '{window}'. Choose from {list(_SPATIAL_DATASETS)}")
+        raise ValueError(
+            f"Unknown window '{window}'. Choose from {list(_SPATIAL_DATASETS)}"
+        )
 
     path = DERIVED_DIR / _SPATIAL_DATASETS[window]
     if not path.exists():
@@ -161,19 +165,22 @@ def load_with_sites(
         raise ValueError("kind must be 'metrics' or 'spatial'")
 
     # -------------------------------------------------
-    # FIX: enforce authoritative site_name from sites_fixed
+    # Enforce authoritative site metadata
     # -------------------------------------------------
-    if "site_name" in df.columns:
-        df = df.drop(columns=["site_name"])
+    for col in ["site_name", "state"]:
+        if col in df.columns:
+            df = df.drop(columns=[col])
 
     df = df.merge(
-        sites[["site_id", "site_name"]],
+        sites[["site_id", "site_name", "state"]],
         on="site_id",
         how="left",
-        validate="many_to_one"
+        validate="many_to_one",
     )
 
-    if df["site_name"].isna().any():
-        raise ValueError("Some site_id values could not be mapped to sites_fixed.csv")
+    if df[["site_name", "state"]].isna().any().any():
+        raise ValueError(
+            "Some site_id values could not be mapped to sites_fixed.csv"
+        )
 
     return df

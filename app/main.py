@@ -136,7 +136,11 @@ st.sidebar.subheader("Site prioritisation")
 
 sort_mode = st.sidebar.radio(
     "Order sites by",
-    options=["Alphabetical", "Mean suitability"],
+    options=[
+        "Alphabetical",
+        "State → Site (A–Z)",
+        "Mean suitability",
+    ],
     index=0,
 )
 
@@ -160,21 +164,31 @@ if sort_mode == "Mean suitability":
     active_sites = set(scores.index)
 
     # -----------------------------
-    # BUILD SUMMARY TABLE
+    # BUILD SUMMARY TABLE (WITH STATE)
     # -----------------------------
     summary_df = (
         df[df["site_name"].isin(scores.index)]
         .loc[df["week_bin"].isin(active_weeks)]
-        .groupby("site_name")[var_cfg["column"]]
+        .groupby(["state", "site_name"], as_index=False)[var_cfg["column"]]
         .agg(
             mean="mean",
             weeks="count",
         )
-        .reset_index()
         .sort_values("mean", ascending=False)
     )
 
     summary_df["mean"] = summary_df["mean"].round(3)
+
+elif sort_mode == "State → Site (A–Z)":
+    ordered_sites = (
+        df[["site_name", "state"]]
+        .drop_duplicates()
+        .sort_values(["state", "site_name"])
+        ["site_name"]
+        .tolist()
+    )
+
+    active_sites = set(ordered_sites)
 
 else:
     if "ALL" in selected_sites or len(selected_sites) == 0:

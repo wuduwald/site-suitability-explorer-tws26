@@ -21,11 +21,34 @@ def plot_heatmap(
     unit = var_cfg.get("unit")
     value_format = var_cfg.get("value_format", ".2f")
 
+    # -----------------------------
+    # BUILD MATRIX
+    # -----------------------------
     matrix = build_site_week_matrix(df, value_col)
 
-    sites = list(matrix.index)
-    weeks = list(matrix.columns)
+    # -----------------------------
+    # DERIVE SITE ORDER (STATE → SITE)
+    # -----------------------------
+    site_meta = (
+        df[["site_name", "state"]]
+        .drop_duplicates()
+    )
 
+    if active_sites:
+        site_meta = site_meta[site_meta["site_name"].isin(active_sites)]
+
+    if "state" in site_meta.columns:
+        site_meta = site_meta.sort_values(["state", "site_name"])
+    else:
+        site_meta = site_meta.sort_values("site_name")
+
+    ordered_sites = site_meta["site_name"].tolist()
+
+    # Reindex matrix to enforce ordering
+    matrix = matrix.loc[ordered_sites]
+
+    sites = ordered_sites
+    weeks = list(matrix.columns)
     z = matrix.values
 
     # -----------------------------
@@ -110,9 +133,8 @@ def plot_heatmap(
     if overlay_key == "rank":
         rank_col = var_cfg.get("rank_column")
         if rank_col and rank_col in df.columns:
-            rank_matrix = build_site_week_matrix(df, rank_col)
+            rank_matrix = build_site_week_matrix(df, rank_col).loc[sites]
 
-            # Worst rank per week
             worst_rank_per_week = rank_matrix.max(axis=0)
 
             fig.update_traces(
@@ -137,64 +159,6 @@ def plot_heatmap(
                 texttemplate="%{text}",
                 textfont=dict(color="black", size=11),
             )
-
-    # -----------------------------
-    # WINNER OVERLAY (SKIP ZERO-WEEKS)
-    # -----------------------------
-    if overlay_key == "winner":
-        rank_col = var_cfg.get("rank_column")
-        if rank_col and rank_col in df.columns:
-            rank_matrix = build_site_week_matrix(df, rank_col)
-
-            week_max = matrix.max(axis=0)
-
-            win_x, win_y, hover_text = [], [], []
-
-            for w in weeks:
-                if np.isnan(week_max[w]) or week_max[w] <= 0:
-                    continue
-
-                for s in sites:
-                    if (
-                        rank_matrix.loc[s, w] == 1
-                        and s in active_sites
-                        and w in active_weeks
-                    ):
-                        win_x.append(w)
-                        win_y.append(s)
-
-                        val = matrix.loc[s, w]
-                        val_str = (
-                            format(val, value_format)
-                            + (f" {unit}" if unit else "")
-                            if not np.isnan(val)
-                            else "N/A"
-                        )
-
-                        hover_text.append(
-                            f"Site: {s}<br>"
-                            f"Week: {w}<br>"
-                            f"{var_cfg['label']}: {val_str}<br>"
-                            "Rank: 1"
-                        )
-
-            if win_x:
-                fig.add_trace(
-                    go.Scatter(
-                        x=win_x,
-                        y=win_y,
-                        yaxis="y",
-                        mode="markers",
-                        marker=dict(
-                            size=16,
-                            color="black",
-                            line=dict(color="white", width=2),
-                        ),
-                        text=hover_text,
-                        hovertemplate="%{text}<extra></extra>",
-                        showlegend=False,
-                    )
-                )
 
     # -----------------------------
     # FOCUS MASK
