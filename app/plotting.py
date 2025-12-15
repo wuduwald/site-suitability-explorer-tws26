@@ -3,7 +3,6 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from app.transforms import build_site_week_matrix
-from app.config import VARIABLES, get_colorscale
 from app.config import VARIABLES, get_colorscale, STATE_NAME_LOOKUP
 
 
@@ -15,7 +14,7 @@ def plot_heatmap(
     active_sites: set,
     show_colorbar: bool = True,
     dataset_label: str | None = None,
-    site_order: list[str] | None = None,  # <-- ORDER IS PASSED IN
+    site_order: list[str] | None = None,  # ordering controlled by main.py
 ):
     var_cfg = VARIABLES[variable_key]
 
@@ -39,6 +38,25 @@ def plot_heatmap(
 
     weeks = list(matrix.columns)
     z = matrix.values.astype(float)
+
+    # -----------------------------
+    # SITE → STATE NAME LOOKUP
+    # -----------------------------
+    site_state = (
+        df[["site_name", "state"]]
+        .drop_duplicates()
+        .set_index("site_name")["state"]
+    )
+
+    site_state_name = {
+        s: STATE_NAME_LOOKUP.get(site_state.get(s), site_state.get(s))
+        for s in sites
+    }
+
+    customdata = [
+        [site_state_name.get(site) for _ in weeks]
+        for site in sites
+    ]
 
     # -----------------------------
     # FIGURE SETUP
@@ -66,6 +84,7 @@ def plot_heatmap(
 
     base_hovertemplate = (
         "Site: %{y}<br>"
+        "State: %{customdata}<br>"
         "Week: %{x}<br>"
         f"{var_cfg['label']}: {hover_value}"
         "<extra></extra>"
@@ -84,7 +103,11 @@ def plot_heatmap(
     # -----------------------------
     vmin = var_cfg.get("vmin")
     vmax = var_cfg.get("vmax")
-    zmid = (vmin + vmax) / 2 if (not colourblind and vmin is not None and vmax is not None) else None
+    zmid = (
+        (vmin + vmax) / 2
+        if (not colourblind and vmin is not None and vmax is not None)
+        else None
+    )
 
     # -----------------------------
     # HEATMAP
@@ -94,6 +117,7 @@ def plot_heatmap(
             z=z,
             x=weeks,
             y=sites,
+            customdata=customdata,
             colorscale=colorscale,
             zmin=vmin,
             zmax=vmax,
@@ -191,6 +215,7 @@ def plot_heatmap(
 
                         hover_text.append(
                             f"Site: {s}<br>"
+                            f"State: {site_state_name.get(s)}<br>"
                             f"Week: {w}<br>"
                             f"{var_cfg['label']}: {val_str}<br>"
                             "Rank: 1"
