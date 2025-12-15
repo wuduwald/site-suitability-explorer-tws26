@@ -44,7 +44,6 @@ def plot_heatmap(
 
     ordered_sites = site_meta["site_name"].tolist()
 
-    # Reindex matrix to enforce ordering
     matrix = matrix.loc[ordered_sites]
 
     sites = ordered_sites
@@ -91,6 +90,16 @@ def plot_heatmap(
     )
 
     # -----------------------------
+    # COLOR RANGE + MIDPOINT
+    # -----------------------------
+    vmin = var_cfg.get("vmin")
+    vmax = var_cfg.get("vmax")
+
+    zmid = None
+    if vmin is not None and vmax is not None:
+        zmid = (vmin + vmax) / 2
+
+    # -----------------------------
     # HEATMAP
     # -----------------------------
     fig.add_trace(
@@ -99,8 +108,9 @@ def plot_heatmap(
             x=weeks,
             y=sites,
             colorscale=colorscale,
-            zmin=var_cfg.get("vmin"),
-            zmax=var_cfg.get("vmax"),
+            zmin=vmin,
+            zmax=vmax,
+            zmid=zmid,
             hovertemplate=base_hovertemplate,
             colorbar=dict(
                 title=colorbar_title,
@@ -134,7 +144,6 @@ def plot_heatmap(
         rank_col = var_cfg.get("rank_column")
         if rank_col and rank_col in df.columns:
             rank_matrix = build_site_week_matrix(df, rank_col).loc[sites]
-
             worst_rank_per_week = rank_matrix.max(axis=0)
 
             fig.update_traces(
