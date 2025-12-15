@@ -14,6 +14,7 @@ def plot_heatmap(
     active_sites: set,
     show_colorbar: bool = True,
     dataset_label: str | None = None,
+    site_order: list[str] | None = None,  # <-- ORDER IS PASSED IN
 ):
     var_cfg = VARIABLES[variable_key]
 
@@ -27,25 +28,19 @@ def plot_heatmap(
     matrix = build_site_week_matrix(df, value_col)
 
     # -----------------------------
-    # DERIVE SITE ORDER (STATE → SITE)
+    # APPLY SITE ORDER (IF PROVIDED)
     # -----------------------------
-    site_meta = df[["site_name", "state"]].drop_duplicates()
-
-    if "state" in site_meta.columns:
-        site_meta = site_meta.sort_values(["state", "site_name"])
+    if site_order is not None:
+        sites = [s for s in site_order if s in matrix.index]
+        matrix = matrix.loc[sites]
     else:
-        site_meta = site_meta.sort_values("site_name")
+        sites = list(matrix.index)
 
-    ordered_sites = [s for s in site_meta["site_name"].tolist() if s in matrix.index]
-    matrix = matrix.loc[ordered_sites]
-
-    sites = ordered_sites
     weeks = list(matrix.columns)
-
     z = matrix.values.astype(float)
 
     # -----------------------------
-    # FIGURE HEIGHT
+    # FIGURE SETUP
     # -----------------------------
     fig_height = max(400, len(sites) * 22)
     fig = go.Figure()
@@ -79,13 +74,8 @@ def plot_heatmap(
     # COLOR SCALE (ACCESSIBILITY)
     # -----------------------------
     colourblind = st.session_state.get("colourblind", False)
+    colorscale = get_colorscale(variable_key, colourblind)
 
-    colorscale = get_colorscale(
-        variable_key=variable_key,
-        colourblind_mode=colourblind,
-    )
-
-    # ✅ TEXT COLOR FIX (THIS IS THE POINT)
     overlay_text_color = "white" if colourblind else "black"
 
     # -----------------------------
@@ -93,10 +83,7 @@ def plot_heatmap(
     # -----------------------------
     vmin = var_cfg.get("vmin")
     vmax = var_cfg.get("vmax")
-
-    zmid = None
-    if not colourblind and vmin is not None and vmax is not None:
-        zmid = (vmin + vmax) / 2
+    zmid = (vmin + vmax) / 2 if (not colourblind and vmin is not None and vmax is not None) else None
 
     # -----------------------------
     # HEATMAP
@@ -138,7 +125,7 @@ def plot_heatmap(
         )
 
     # -----------------------------
-    # RANK OVERLAY
+    # RANK OVERLAY (HIDE BOTTOM ZEROES)
     # -----------------------------
     if overlay_key == "rank":
         rank_col = var_cfg.get("rank_column")
@@ -170,21 +157,25 @@ def plot_heatmap(
             )
 
     # -----------------------------
-    # WINNER OVERLAY (UNCHANGED)
+    # WINNER OVERLAY (SKIP ZERO-WEEKS)
     # -----------------------------
     if overlay_key == "winner":
         rank_col = var_cfg.get("rank_column")
         if rank_col and rank_col in df.columns:
             rank_matrix = build_site_week_matrix(df, rank_col).loc[sites]
+            week_max = matrix.max(axis=0)
 
             win_x, win_y, hover_text = [], [], []
 
             for w in weeks:
+                if np.isnan(week_max[w]) or week_max[w] <= 0:
+                    continue
+
                 for s in sites:
                     if (
                         rank_matrix.loc[s, w] == 1
-                        and (s in active_sites if active_sites is not None else True)
-                        and (w in active_weeks if active_weeks is not None else True)
+                        and s in active_sites
+                        and w in active_weeks
                     ):
                         win_x.append(w)
                         win_y.append(s)
@@ -204,32 +195,60 @@ def plot_heatmap(
                             "Rank: 1"
                         )
 
-            fig.add_trace(
-                go.Scatter(
-                    x=win_x,
-                    y=win_y,
-                    mode="markers",
-                    marker=dict(
-                        size=16,
-                        color="black",
-                        line=dict(color="white", width=2),
-                    ),
-                    text=hover_text,
-                    hovertemplate="%{text}<extra></extra>",
-                    showlegend=False,
+            if win_x:
+                fig.add_trace(
+                    go.Scatter(
+                        x=win_x,
+                        y=win_y,
+                        mode="markers",
+                        marker=dict(
+                            size=16,
+                            color="black",
+                            line=dict(color="white", width=2),
+                        ),
+                        text=hover_text,
+                        hovertemplate="%{text}<extra></extra>",
+                        showlegend=False,
+                    )
                 )
-            )
 
     # -----------------------------
-    # LAYOUT
+    # TITLE + LAYOUT
     # -----------------------------
+    subtitle = var_cfg.get("description", "")
+
+    time_window = var_cfg.get("time_window")
+    if time_window:
+        subtitle += f" (data from {time_window})"
+
+    if unit:
+        subtitle += f" [{unit}]"
+
+    if dataset_label:
+        subtitle += f" — {dataset_label}"
+
     fig.update_layout(
         showlegend=False,
         height=fig_height,
         autosize=False,
         margin=dict(l=160, r=60, t=90, b=40),
-        xaxis=dict(showgrid=False, zeroline=False),
+        title=dict(
+            text=(
+                f"{var_cfg['label']}<br>"
+                f"<span style='font-size:14px; color:#666;'>"
+                f"{subtitle}"
+                f"</span>"
+            ),
+            x=0.5,
+            xanchor="center",
+        ),
+        xaxis=dict(
+            title="Week",
+            showgrid=False,
+            zeroline=False,
+        ),
         yaxis=dict(
+            title="Site",
             type="category",
             categoryorder="array",
             categoryarray=sites,

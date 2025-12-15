@@ -9,8 +9,12 @@ import streamlit as st
 from app.data_loader import load_with_sites
 from app.plotting import plot_heatmap
 from app.transforms import mean_per_site
-from app.config import DATASETS, VARIABLES, APP_DEFAULTS, COLORBLIND_MODE_DEFAULT
-
+from app.config import (
+    DATASETS,
+    VARIABLES,
+    APP_DEFAULTS,
+    COLORBLIND_MODE_DEFAULT,
+)
 
 # -----------------------------
 # PAGE CONFIG
@@ -19,7 +23,6 @@ st.set_page_config(
     page_title="Site Suitability Explorer",
     layout="wide",
 )
-
 
 # -----------------------------
 # SIDEBAR CONTROLS
@@ -34,7 +37,7 @@ st.session_state.setdefault("colourblind", COLORBLIND_MODE_DEFAULT)
 st.sidebar.toggle(
     "Bruno-Mode 😎",
     key="colourblind",
-    help="Provides Mr. Ando with a colourblind friendly palette."
+    help="Provides a colourblind-friendly palette.",
 )
 
 # -----------------------------
@@ -58,7 +61,7 @@ variable_key = st.sidebar.selectbox(
 var_cfg = VARIABLES[variable_key]
 
 # -----------------------------
-# OVERLAY (SMART / VARIABLE-AWARE)
+# OVERLAY (VARIABLE-AWARE)
 # -----------------------------
 overlay_options = ["none"]
 
@@ -91,7 +94,6 @@ show_colorbar = st.sidebar.checkbox(
     value=APP_DEFAULTS.get("show_colorbar", True),
 )
 
-
 # -----------------------------
 # LOAD DATA (CACHED)
 # -----------------------------
@@ -103,7 +105,6 @@ def load_data(dataset_key):
     )
 
 df = load_data(dataset_key)
-
 
 # -----------------------------
 # FOCUS CONTROLS
@@ -128,7 +129,6 @@ selected_sites = st.sidebar.multiselect(
     default=["ALL"],
 )
 
-
 # -----------------------------
 # SITE ORDERING / PRIORITISATION
 # -----------------------------
@@ -145,6 +145,7 @@ sort_mode = st.sidebar.radio(
 )
 
 summary_df = None
+site_order = None  # 🔑 explicit visual order
 
 if sort_mode == "Mean suitability":
     top_n = st.sidebar.slider(
@@ -161,13 +162,14 @@ if sort_mode == "Mean suitability":
         weeks=active_weeks,
     ).head(top_n)
 
-    active_sites = set(scores.index)
+    site_order = scores.index.tolist()
+    active_sites = set(site_order)
 
     # -----------------------------
-    # BUILD SUMMARY TABLE (WITH STATE)
+    # SUMMARY TABLE
     # -----------------------------
     summary_df = (
-        df[df["site_name"].isin(scores.index)]
+        df[df["site_name"].isin(site_order)]
         .loc[df["week_bin"].isin(active_weeks)]
         .groupby(["state", "site_name"], as_index=False)[var_cfg["column"]]
         .agg(
@@ -180,7 +182,7 @@ if sort_mode == "Mean suitability":
     summary_df["mean"] = summary_df["mean"].round(3)
 
 elif sort_mode == "State → Site (A–Z)":
-    ordered_sites = (
+    site_order = (
         df[["site_name", "state"]]
         .drop_duplicates()
         .sort_values(["state", "site_name"])
@@ -188,14 +190,16 @@ elif sort_mode == "State → Site (A–Z)":
         .tolist()
     )
 
-    active_sites = set(ordered_sites)
+    active_sites = set(site_order)
 
-else:
+else:  # Alphabetical
+    site_order = sorted(all_sites)
+
     if "ALL" in selected_sites or len(selected_sites) == 0:
-        active_sites = set(all_sites)
+        active_sites = set(site_order)
     else:
         active_sites = set(selected_sites)
-
+        site_order = [s for s in site_order if s in active_sites]
 
 # -----------------------------
 # PLOT
@@ -206,12 +210,12 @@ fig = plot_heatmap(
     overlay_key=overlay_key,
     active_weeks=active_weeks,
     active_sites=active_sites,
+    site_order=site_order,
     show_colorbar=show_colorbar,
     dataset_label=DATASETS[dataset_key]["label"],
 )
 
 st.plotly_chart(fig, use_container_width=True)
-
 
 # -----------------------------
 # SUMMARY TABLE + EXPORT
@@ -232,9 +236,8 @@ if summary_df is not None:
         mime="text/csv",
     )
 
-
 # -----------------------------
-# FOOTER / STAMP
+# FOOTER
 # -----------------------------
 st.sidebar.markdown("---")
 
