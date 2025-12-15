@@ -74,13 +74,19 @@ var_cfg = VARIABLES[variable_key]
 # LOAD DATA (CACHED)
 # -----------------------------
 @st.cache_data
-def load_data(dataset_key):
+def load_data(dataset_key, _schema_version: int = 3):
+    """
+    Cached loader for spatial data.
+
+    _schema_version is used ONLY to invalidate Streamlit Cloud cache
+    when the dataframe schema changes.
+    """
     return load_with_sites(
         kind="spatial",
         window=dataset_key,
     )
 
-df = load_data(dataset_key)
+df = load_data(dataset_key, _schema_version=3)
 
 # -----------------------------
 # WEEK CONTROLS
