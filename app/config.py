@@ -11,18 +11,18 @@ DATASETS = {
     "full": {
         "label": "2018–2024 (Full History)",
         "path": "/content/data/derived/weekly_spatial_full_history.csv",
-        "description": "All available historical data (2018–2024). Best for long-term patterns."
+        "description": "All available historical data (2018–2024). Best for long-term patterns.",
     },
     "last4y": {
         "label": "2021–2024 (Last 4 Years)",
         "path": "/content/data/derived/weekly_spatial_last4y.csv",
-        "description": "Recent multi-year view. Balances recency and stability."
+        "description": "Recent multi-year view. Balances recency and stability.",
     },
     "2024": {
         "label": "2024 Only",
         "path": "/content/data/derived/weekly_spatial_2024.csv",
-        "description": "Single-year view. Best for short-term planning and validation."
-    }
+        "description": "Single-year view. Best for short-term planning and validation.",
+    },
 }
 
 DEFAULT_DATASET_KEY = "full"
@@ -39,7 +39,7 @@ VARIABLES = {
         "rank_column": "suitability_rank",
         "label": "Overall Suitability",
         "description": "Overall weekly suitability (all constraints combined).",
-        "time_window": "08–18",
+        "time_window": "08:00–18:00",
         "unit": None,
         "value_format": ".2f",
         "colorscale": "rdylgn",
@@ -56,7 +56,7 @@ VARIABLES = {
         "rank_column": "suitability_temp_rank",
         "label": "Temperature Suitability",
         "description": "Percentage of workable temperature conditions.",
-        "time_window": "08–18",
+        "time_window": "08:00–18:00",
         "unit": None,
         "value_format": ".2f",
         "colorscale": "rdylgn",
@@ -73,7 +73,7 @@ VARIABLES = {
         "rank_column": "suitability_rh_rank",
         "label": "Humidity Suitability",
         "description": "Percentage of workable humidity conditions.",
-        "time_window": "08–18",
+        "time_window": "08:00–18:00",
         "unit": None,
         "value_format": ".2f",
         "colorscale": "rdylgn",
@@ -90,7 +90,7 @@ VARIABLES = {
         "rank_column": "suitability_wind_rank",
         "label": "Wind Suitability",
         "description": "Percentage of workable wind conditions.",
-        "time_window": None,  # derived from 24h wind maxima
+        "time_window": None,  # derived from 24-hour wind maxima
         "unit": None,
         "value_format": ".2f",
         "colorscale": "rdylgn",
@@ -107,7 +107,7 @@ VARIABLES = {
         "column": "t2m_mean_08_18",
         "label": "Mean Temperature",
         "description": "Mean daytime temperature.",
-        "time_window": "08–18",
+        "time_window": "08:00–18:00",
         "unit": "°C",
         "value_format": ".1f",
         "colorscale": "rdylbu_r",
@@ -156,7 +156,7 @@ VARIABLES = {
         "column": "rh_mean_08_18",
         "label": "Mean Humidity",
         "description": "Mean daytime relative humidity.",
-        "time_window": "08–18",
+        "time_window": "08:00–18:00",
         "unit": "%",
         "value_format": ".0f",
         "colorscale": "blues",
@@ -227,19 +227,19 @@ DEFAULT_VARIABLE_KEY = "suitability"
 OVERLAY_MODES = {
     "none": {
         "label": "No Overlay",
-        "description": "Show heatmap only."
+        "description": "Show heatmap only.",
     },
     "value": {
         "label": "Value",
-        "description": "Display the raw value in each cell."
+        "description": "Display the raw value in each cell.",
     },
     "rank": {
         "label": "Rank",
-        "description": "Display per-week dense rank (1 = best)."
+        "description": "Display per-week dense rank (1 = best).",
     },
     "winner": {
         "label": "Winner",
-        "description": "Highlight the best site per week."
+        "description": "Highlight the best site per week.",
     },
 }
 

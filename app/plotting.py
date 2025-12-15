@@ -60,7 +60,7 @@ def plot_heatmap(
     )
 
     # -----------------------------
-    # HEATMAP (LOCKED)
+    # HEATMAP
     # -----------------------------
     fig.add_trace(
         go.Heatmap(
@@ -118,7 +118,7 @@ def plot_heatmap(
             )
 
     # -----------------------------
-    # WINNER OVERLAY (LOCKED AXIS)
+    # WINNER OVERLAY
     # -----------------------------
     if overlay_key == "winner":
         rank_col = var_cfg.get("rank_column")
@@ -189,16 +189,17 @@ def plot_heatmap(
     ]
 
     # -----------------------------
-    # TITLE + LAYOUT (UPDATED SUBTITLE LOGIC)
+    # TITLE + LAYOUT (SUBTITLE WITH UNIT + TIME WINDOW)
     # -----------------------------
     subtitle = var_cfg.get("description", "")
 
-    # Append time window note if applicable
     time_window = var_cfg.get("time_window")
     if time_window:
         subtitle += f" (data from {time_window})"
 
-    # Append dataset label
+    if unit:
+        subtitle += f" [{unit}]"
+
     if dataset_label:
         subtitle += f" — {dataset_label}"
 
