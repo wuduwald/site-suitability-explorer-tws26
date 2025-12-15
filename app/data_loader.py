@@ -145,7 +145,7 @@ def load_weekly_spatial(window: str) -> pd.DataFrame:
 # -----------------------------
 def load_with_sites(
     kind: str,
-    window: str
+    window: str,
 ) -> pd.DataFrame:
     """
     Load a dataset and join site metadata.
@@ -167,7 +167,7 @@ def load_with_sites(
     # -------------------------------------------------
     # Enforce authoritative site metadata
     # -------------------------------------------------
-    for col in ["site_name", "state"]:
+    for col in ("site_name", "state"):
         if col in df.columns:
             df = df.drop(columns=[col])
 
@@ -178,9 +178,12 @@ def load_with_sites(
         validate="many_to_one",
     )
 
-    if df[["site_name", "state"]].isna().any().any():
+    # ---- Strong validation with diagnostics ----
+    missing_rows = df[df[["site_name", "state"]].isna().any(axis=1)]
+    if not missing_rows.empty:
+        bad_ids = missing_rows["site_id"].unique().tolist()
         raise ValueError(
-            "Some site_id values could not be mapped to sites_fixed.csv"
+            f"Unmapped site_id values found in data: {bad_ids}"
         )
 
     return df
