@@ -9,7 +9,7 @@ import streamlit as st
 from app.data_loader import load_with_sites
 from app.plotting import plot_heatmap
 from app.transforms import mean_per_site
-from app.config import DATASETS, VARIABLES, APP_DEFAULTS
+from app.config import DATASETS, VARIABLES, APP_DEFAULTS, COLORBLIND_MODE_DEFAULT
 
 
 # -----------------------------
@@ -25,6 +25,17 @@ st.set_page_config(
 # SIDEBAR CONTROLS
 # -----------------------------
 st.sidebar.header("Controls")
+
+# -----------------------------
+# ACCESSIBILITY
+# -----------------------------
+st.session_state.setdefault("colourblind", COLORBLIND_MODE_DEFAULT)
+
+st.sidebar.toggle(
+    "Bruno-Mode 😎",
+    key="colourblind",
+    help="Uses a colourblind-friendly palette (Magma)"
+)
 
 # -----------------------------
 # DATASET
