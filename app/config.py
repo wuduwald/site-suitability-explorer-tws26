@@ -263,8 +263,8 @@ BASE_COLOR_SCALES = {
 }
 
 COLORBLIND_COLOR_OVERRIDE = {
-    "diverging": pc.sequential.Magma,
-    "sequential": pc.sequential.Magma,
+    "diverging": "Cividis",
+    "sequential": "Cividis",
 }
 
 

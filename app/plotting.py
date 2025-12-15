@@ -31,22 +31,18 @@ def plot_heatmap(
     # -----------------------------
     site_meta = df[["site_name", "state"]].drop_duplicates()
 
-    if active_sites:
-        site_meta = site_meta[site_meta["site_name"].isin(active_sites)]
-
     if "state" in site_meta.columns:
         site_meta = site_meta.sort_values(["state", "site_name"])
     else:
         site_meta = site_meta.sort_values("site_name")
 
-    ordered_sites = site_meta["site_name"].tolist()
+    ordered_sites = [s for s in site_meta["site_name"].tolist() if s in matrix.index]
     matrix = matrix.loc[ordered_sites]
 
     sites = ordered_sites
     weeks = list(matrix.columns)
 
-    # Mask NaNs explicitly (prevents Plotly extrapolation)
-    z = np.ma.masked_invalid(matrix.values)
+    z = matrix.values.astype(float)
 
     # -----------------------------
     # FIGURE HEIGHT
@@ -80,7 +76,7 @@ def plot_heatmap(
     )
 
     # -----------------------------
-    # COLOR SCALE (ACCESSIBILITY-AWARE)
+    # COLOR SCALE (ACCESSIBILITY)
     # -----------------------------
     colourblind = st.session_state.get("colourblind", False)
 
@@ -89,19 +85,18 @@ def plot_heatmap(
         colourblind_mode=colourblind,
     )
 
+    # ✅ TEXT COLOR FIX (THIS IS THE POINT)
+    overlay_text_color = "white" if colourblind else "black"
+
     # -----------------------------
     # COLOR RANGE
     # -----------------------------
     vmin = var_cfg.get("vmin")
     vmax = var_cfg.get("vmax")
 
-    # 🔑 CRITICAL FIX:
-    # zmid is ONLY valid for diverging palettes.
-    # Magma is sequential → zmid MUST be None.
     zmid = None
-    if not colourblind:
-        if vmin is not None and vmax is not None:
-            zmid = (vmin + vmax) / 2
+    if not colourblind and vmin is not None and vmax is not None:
+        zmid = (vmin + vmax) / 2
 
     # -----------------------------
     # HEATMAP
@@ -139,7 +134,7 @@ def plot_heatmap(
                 for s in sites
             ],
             texttemplate="%{text}",
-            textfont=dict(color="black", size=10),
+            textfont=dict(color=overlay_text_color, size=10),
         )
 
     # -----------------------------
@@ -171,11 +166,11 @@ def plot_heatmap(
                     for s in sites
                 ],
                 texttemplate="%{text}",
-                textfont=dict(color="black", size=11),
+                textfont=dict(color=overlay_text_color, size=11),
             )
 
     # -----------------------------
-    # WINNER OVERLAY
+    # WINNER OVERLAY (UNCHANGED)
     # -----------------------------
     if overlay_key == "winner":
         rank_col = var_cfg.get("rank_column")
@@ -188,8 +183,8 @@ def plot_heatmap(
                 for s in sites:
                     if (
                         rank_matrix.loc[s, w] == 1
-                        and s in active_sites
-                        and w in active_weeks
+                        and (s in active_sites if active_sites is not None else True)
+                        and (w in active_weeks if active_weeks is not None else True)
                     ):
                         win_x.append(w)
                         win_y.append(s)
@@ -226,60 +221,15 @@ def plot_heatmap(
             )
 
     # -----------------------------
-    # FOCUS MASK
+    # LAYOUT
     # -----------------------------
-    shapes = [
-        dict(
-            type="rect",
-            x0=w - 0.5,
-            x1=w + 0.5,
-            y0=i - 0.5,
-            y1=i + 0.5,
-            fillcolor="rgba(120,120,120,0.75)",
-            line=dict(width=0),
-            layer="above",
-        )
-        for i, s in enumerate(sites)
-        for w in weeks
-        if s not in active_sites or w not in active_weeks
-    ]
-
-    # -----------------------------
-    # TITLE + LAYOUT
-    # -----------------------------
-    subtitle = var_cfg.get("description", "")
-
-    if var_cfg.get("time_window"):
-        subtitle += f" (data from {var_cfg['time_window']})"
-
-    if unit:
-        subtitle += f" [{unit}]"
-
-    if dataset_label:
-        subtitle += f" — {dataset_label}"
-
     fig.update_layout(
         showlegend=False,
         height=fig_height,
         autosize=False,
         margin=dict(l=160, r=60, t=90, b=40),
-        title=dict(
-            text=(
-                f"{var_cfg['label']}<br>"
-                f"<span style='font-size:14px; color:#666;'>"
-                f"{subtitle}"
-                f"</span>"
-            ),
-            x=0.5,
-            xanchor="center",
-        ),
-        xaxis=dict(
-            title="Week",
-            showgrid=False,
-            zeroline=False,
-        ),
+        xaxis=dict(showgrid=False, zeroline=False),
         yaxis=dict(
-            title="Site",
             type="category",
             categoryorder="array",
             categoryarray=sites,
@@ -287,7 +237,6 @@ def plot_heatmap(
             showgrid=False,
             zeroline=False,
         ),
-        shapes=shapes,
     )
 
     return fig
