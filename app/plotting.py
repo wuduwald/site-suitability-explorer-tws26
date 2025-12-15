@@ -32,7 +32,6 @@ def plot_heatmap(
     # FIGURE HEIGHT
     # -----------------------------
     fig_height = max(400, len(sites) * 22)
-
     fig = go.Figure()
 
     # -----------------------------
@@ -106,17 +105,30 @@ def plot_heatmap(
         )
 
     # -----------------------------
-    # RANK OVERLAY
+    # RANK OVERLAY (HIDE BOTTOM-RANK ZEROS)
     # -----------------------------
     if overlay_key == "rank":
         rank_col = var_cfg.get("rank_column")
         if rank_col and rank_col in df.columns:
             rank_matrix = build_site_week_matrix(df, rank_col)
 
+            # Worst rank per week
+            worst_rank_per_week = rank_matrix.max(axis=0)
+
             fig.update_traces(
                 text=[
                     [
-                        "" if np.isnan(rank_matrix.loc[s, w])
+                        ""
+                        if (
+                            np.isnan(rank_matrix.loc[s, w])
+                            or (
+                                rank_matrix.loc[s, w] == worst_rank_per_week[w]
+                                and (
+                                    np.isnan(matrix.loc[s, w])
+                                    or matrix.loc[s, w] <= 0
+                                )
+                            )
+                        )
                         else str(int(rank_matrix.loc[s, w]))
                         for w in weeks
                     ]
@@ -127,16 +139,21 @@ def plot_heatmap(
             )
 
     # -----------------------------
-    # WINNER OVERLAY
+    # WINNER OVERLAY (SKIP ZERO-WEEKS)
     # -----------------------------
     if overlay_key == "winner":
         rank_col = var_cfg.get("rank_column")
         if rank_col and rank_col in df.columns:
             rank_matrix = build_site_week_matrix(df, rank_col)
 
+            week_max = matrix.max(axis=0)
+
             win_x, win_y, hover_text = [], [], []
 
             for w in weeks:
+                if np.isnan(week_max[w]) or week_max[w] <= 0:
+                    continue
+
                 for s in sites:
                     if (
                         rank_matrix.loc[s, w] == 1
@@ -161,22 +178,23 @@ def plot_heatmap(
                             "Rank: 1"
                         )
 
-            fig.add_trace(
-                go.Scatter(
-                    x=win_x,
-                    y=win_y,
-                    yaxis="y",
-                    mode="markers",
-                    marker=dict(
-                        size=16,
-                        color="black",
-                        line=dict(color="white", width=2),
-                    ),
-                    text=hover_text,
-                    hovertemplate="%{text}<extra></extra>",
-                    showlegend=False,
+            if win_x:
+                fig.add_trace(
+                    go.Scatter(
+                        x=win_x,
+                        y=win_y,
+                        yaxis="y",
+                        mode="markers",
+                        marker=dict(
+                            size=16,
+                            color="black",
+                            line=dict(color="white", width=2),
+                        ),
+                        text=hover_text,
+                        hovertemplate="%{text}<extra></extra>",
+                        showlegend=False,
+                    )
                 )
-            )
 
     # -----------------------------
     # FOCUS MASK
@@ -198,7 +216,7 @@ def plot_heatmap(
     ]
 
     # -----------------------------
-    # TITLE + LAYOUT (SUBTITLE WITH UNIT + TIME WINDOW)
+    # TITLE + LAYOUT
     # -----------------------------
     subtitle = var_cfg.get("description", "")
 
