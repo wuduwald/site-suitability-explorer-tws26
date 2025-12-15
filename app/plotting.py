@@ -25,6 +25,10 @@ def plot_heatmap(
     sites = list(matrix.index)
     weeks = list(matrix.columns)
 
+    # IMPORTANT: numeric y mapping to avoid multicategory axis
+    site_to_y = {site: i for i, site in enumerate(sites)}
+    y_numeric = list(range(len(sites)))
+
     z = matrix.values
 
     # -----------------------------
@@ -53,11 +57,14 @@ def plot_heatmap(
     )
 
     base_hovertemplate = (
-        "Site: %{y}<br>"
+        "Site: %{customdata[0]}<br>"
         "Week: %{x}<br>"
         f"{var_cfg['label']}: {hover_value}"
         "<extra></extra>"
     )
+
+    # customdata for site names
+    heatmap_customdata = [[site] * len(weeks) for site in sites]
 
     # -----------------------------
     # HEATMAP
@@ -66,7 +73,8 @@ def plot_heatmap(
         go.Heatmap(
             z=z,
             x=weeks,
-            y=sites,
+            y=y_numeric,
+            customdata=heatmap_customdata,
             colorscale=var_cfg.get("colorscale", "RdYlGn"),
             zmin=var_cfg.get("vmin"),
             zmax=var_cfg.get("vmax"),
@@ -142,7 +150,7 @@ def plot_heatmap(
             )
 
     # -----------------------------
-    # WINNER OVERLAY
+    # WINNER OVERLAY (numeric y)
     # -----------------------------
     if overlay_key == "winner":
         rank_col = var_cfg.get("rank_column")
@@ -160,7 +168,7 @@ def plot_heatmap(
                         and week in active_weeks
                     ):
                         win_x.append(week)
-                        win_y.append(site)
+                        win_y.append(site_to_y[site])
 
                         val = matrix.loc[site, week]
                         val_str = (
@@ -201,19 +209,19 @@ def plot_heatmap(
             type="rect",
             x0=week - 0.5,
             x1=week + 0.5,
-            y0=i - 0.5,
-            y1=i + 0.5,
+            y0=site_to_y[site] - 0.5,
+            y1=site_to_y[site] + 0.5,
             fillcolor="rgba(120,120,120,0.75)",
             line=dict(width=0),
             layer="above",
         )
-        for i, site in enumerate(sites)
+        for site in sites
         for week in weeks
         if site not in active_sites or week not in active_weeks
     ]
 
     # -----------------------------
-    # TITLE + LAYOUT (LOCKED)
+    # TITLE + LAYOUT (FULLY LOCKED)
     # -----------------------------
     subtitle = var_cfg.get("description", "")
     if dataset_label:
@@ -241,13 +249,12 @@ def plot_heatmap(
         ),
         yaxis=dict(
             title="Site",
-            type="category",
-            categoryorder="array",
-            categoryarray=sites,
+            tickmode="array",
+            tickvals=y_numeric,
+            ticktext=sites,
             showgrid=False,
             zeroline=False,
         ),
-        yaxis_autorange="reversed",
         margin=dict(l=180, r=60, t=90, b=40),
         shapes=shapes,
     )
