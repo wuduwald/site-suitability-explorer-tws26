@@ -29,10 +29,7 @@ def plot_heatmap(
     # -----------------------------
     # DERIVE SITE ORDER (STATE → SITE)
     # -----------------------------
-    site_meta = (
-        df[["site_name", "state"]]
-        .drop_duplicates()
-    )
+    site_meta = df[["site_name", "state"]].drop_duplicates()
 
     if active_sites:
         site_meta = site_meta[site_meta["site_name"].isin(active_sites)]
@@ -48,7 +45,9 @@ def plot_heatmap(
 
     sites = ordered_sites
     weeks = list(matrix.columns)
-    z = matrix.values
+
+    # 🔑 FIX 1: mask NaNs explicitly
+    z = np.ma.masked_invalid(matrix.values)
 
     # -----------------------------
     # FIGURE HEIGHT
@@ -111,6 +110,7 @@ def plot_heatmap(
             zmin=vmin,
             zmax=vmax,
             zmid=zmid,
+            connectgaps=False,  # 🔑 FIX 2: prevent colour extrapolation
             hovertemplate=base_hovertemplate,
             colorbar=dict(
                 title=colorbar_title,
