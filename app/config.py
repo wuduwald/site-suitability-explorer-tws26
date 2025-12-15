@@ -33,12 +33,13 @@ DEFAULT_DATASET_KEY = "full"
 # -----------------------------
 VARIABLES = {
 
-    # --- SUITABILITY (dimensionless) ---
+    # --- SUITABILITY (dimensionless, daytime-derived) ---
     "suitability": {
         "column": "pct_viability",
         "rank_column": "suitability_rank",
         "label": "Overall Suitability",
         "description": "Overall weekly suitability (all constraints combined).",
+        "time_window": "08–18",
         "unit": None,
         "value_format": ".2f",
         "colorscale": "rdylgn",
@@ -49,11 +50,13 @@ VARIABLES = {
         "allow_winner_strip": True,
         "default_overlay": "winner",
     },
+
     "suitability_temp": {
         "column": "pct_t2m_08_18",
         "rank_column": "suitability_temp_rank",
         "label": "Temperature Suitability",
-        "description": "Percentage of workable temperature conditions (08–18).",
+        "description": "Percentage of workable temperature conditions.",
+        "time_window": "08–18",
         "unit": None,
         "value_format": ".2f",
         "colorscale": "rdylgn",
@@ -64,11 +67,13 @@ VARIABLES = {
         "allow_winner_strip": True,
         "default_overlay": "rank",
     },
+
     "suitability_humidity": {
         "column": "pct_rh_08_18",
         "rank_column": "suitability_rh_rank",
         "label": "Humidity Suitability",
         "description": "Percentage of workable humidity conditions.",
+        "time_window": "08–18",
         "unit": None,
         "value_format": ".2f",
         "colorscale": "rdylgn",
@@ -79,11 +84,13 @@ VARIABLES = {
         "allow_winner_strip": True,
         "default_overlay": "rank",
     },
+
     "suitability_wind": {
         "column": "pct_wind_max",
         "rank_column": "suitability_wind_rank",
         "label": "Wind Suitability",
         "description": "Percentage of workable wind conditions.",
+        "time_window": None,  # derived from 24h wind maxima
         "unit": None,
         "value_format": ".2f",
         "colorscale": "rdylgn",
@@ -98,8 +105,9 @@ VARIABLES = {
     # --- TEMPERATURE (°C) ---
     "temperature_mean": {
         "column": "t2m_mean_08_18",
-        "label": "Mean Temperature (08–18)",
-        "description": "Mean daytime temperature (08–18).",
+        "label": "Mean Temperature",
+        "description": "Mean daytime temperature.",
+        "time_window": "08–18",
         "unit": "°C",
         "value_format": ".1f",
         "colorscale": "rdylbu_r",
@@ -110,10 +118,12 @@ VARIABLES = {
         "allow_winner_strip": False,
         "default_overlay": "value",
     },
+
     "temperature_absmin": {
         "column": "t2m_absmin_08_18",
         "label": "Absolute Minimum Temperature",
         "description": "Worst-case minimum temperature observed.",
+        "time_window": None,
         "unit": "°C",
         "value_format": ".1f",
         "colorscale": "rdylbu_r",
@@ -124,10 +134,12 @@ VARIABLES = {
         "allow_winner_strip": False,
         "default_overlay": "value",
     },
+
     "temperature_absmax": {
         "column": "t2m_absmax_08_18",
         "label": "Absolute Maximum Temperature",
         "description": "Worst-case maximum temperature observed.",
+        "time_window": None,
         "unit": "°C",
         "value_format": ".1f",
         "colorscale": "rdylbu_r",
@@ -144,6 +156,7 @@ VARIABLES = {
         "column": "rh_mean_08_18",
         "label": "Mean Humidity",
         "description": "Mean daytime relative humidity.",
+        "time_window": "08–18",
         "unit": "%",
         "value_format": ".0f",
         "colorscale": "blues",
@@ -154,10 +167,12 @@ VARIABLES = {
         "allow_winner_strip": False,
         "default_overlay": "value",
     },
+
     "humidity_absmax": {
         "column": "rh_absmax_08_18",
         "label": "Maximum Humidity",
         "description": "Worst-case relative humidity observed.",
+        "time_window": None,
         "unit": "%",
         "value_format": ".0f",
         "colorscale": "blues",
@@ -169,11 +184,12 @@ VARIABLES = {
         "default_overlay": "value",
     },
 
-    # --- WIND (m/s) ---
+    # --- WIND (m/s, 24-hour) ---
     "wind_mean": {
         "column": "wind_mean",
         "label": "Mean Wind Speed",
         "description": "Mean wind speed.",
+        "time_window": None,  # 24-hour mean
         "unit": "m/s",
         "value_format": ".1f",
         "colorscale": "greens",
@@ -184,10 +200,12 @@ VARIABLES = {
         "allow_winner_strip": False,
         "default_overlay": "value",
     },
+
     "wind_absmax": {
         "column": "wind_absmax",
         "label": "Maximum Wind Speed",
         "description": "Worst-case wind speed observed.",
+        "time_window": None,  # 24-hour max
         "unit": "m/s",
         "value_format": ".1f",
         "colorscale": "greens",

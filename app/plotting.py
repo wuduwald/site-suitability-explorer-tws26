@@ -156,7 +156,7 @@ def plot_heatmap(
                 go.Scatter(
                     x=win_x,
                     y=win_y,
-                    yaxis="y",  # CRITICAL
+                    yaxis="y",
                     mode="markers",
                     marker=dict(
                         size=16,
@@ -189,11 +189,18 @@ def plot_heatmap(
     ]
 
     # -----------------------------
-    # TITLE + LAYOUT (FULLY LOCKED)
+    # TITLE + LAYOUT (UPDATED SUBTITLE LOGIC)
     # -----------------------------
     subtitle = var_cfg.get("description", "")
+
+    # Append time window note if applicable
+    time_window = var_cfg.get("time_window")
+    if time_window:
+        subtitle += f" (data from {time_window})"
+
+    # Append dataset label
     if dataset_label:
-        subtitle = f"{subtitle} — {dataset_label}"
+        subtitle += f" — {dataset_label}"
 
     fig.update_layout(
         showlegend=False,
@@ -222,7 +229,7 @@ def plot_heatmap(
             categoryorder="array",
             categoryarray=sites,
             autorange="reversed",
-            automargin=False,          # 🔒 KEY FIX
+            automargin=False,
             ticklabelposition="outside",
             showgrid=False,
             zeroline=False,
