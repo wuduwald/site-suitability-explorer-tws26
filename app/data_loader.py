@@ -31,9 +31,6 @@ DERIVED_DIR = DATA_DIR / "derived"
 # Utility helpers
 # -----------------------------
 def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Normalize column names to snake_case lowercase.
-    """
     df = df.copy()
     df.columns = (
         df.columns
@@ -50,6 +47,7 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
 def load_sites() -> pd.DataFrame:
     """
     Load sites_fixed.csv (authoritative site dimension table).
+    Normalizes latitude / longitude naming.
     """
     path = DIMENSIONS_DIR / "sites_fixed.csv"
     if not path.exists():
@@ -58,7 +56,32 @@ def load_sites() -> pd.DataFrame:
     sites = pd.read_csv(path)
     sites = _normalize_columns(sites)
 
-    required = {"site_id", "site_name", "state"}
+    # -----------------------------
+    # Normalize coordinate columns
+    # -----------------------------
+    rename_map = {}
+
+    if "lat" in sites.columns:
+        rename_map["lat"] = "latitude"
+    if "latitude_deg" in sites.columns:
+        rename_map["latitude_deg"] = "latitude"
+
+    if "lon" in sites.columns:
+        rename_map["lon"] = "longitude"
+    if "lng" in sites.columns:
+        rename_map["lng"] = "longitude"
+    if "long" in sites.columns:
+        rename_map["long"] = "longitude"
+    if "longitude_deg" in sites.columns:
+        rename_map["longitude_deg"] = "longitude"
+
+    if rename_map:
+        sites = sites.rename(columns=rename_map)
+
+    # -----------------------------
+    # Hard validation
+    # -----------------------------
+    required = {"site_id", "site_name", "state", "latitude", "longitude"}
     missing = required - set(sites.columns)
     if missing:
         raise ValueError(f"sites_fixed.csv missing columns: {missing}")
@@ -86,75 +109,35 @@ _SPATIAL_DATASETS = {
 # Load metric data
 # -----------------------------
 def load_weekly_metrics(window: str) -> pd.DataFrame:
-    """
-    Load raw weekly environmental metrics for a given time window.
-    """
     if window not in _METRIC_DATASETS:
-        raise ValueError(
-            f"Unknown window '{window}'. Choose from {list(_METRIC_DATASETS)}"
-        )
+        raise ValueError(f"Unknown window '{window}'")
 
     path = METRICS_DIR / _METRIC_DATASETS[window]
-    if not path.exists():
-        raise FileNotFoundError(f"Missing file: {path}")
+    df = _normalize_columns(pd.read_csv(path))
 
-    df = pd.read_csv(path)
-    df = _normalize_columns(df)
-
-    # ---- Normalize week column name ----
     if "week_bin" not in df.columns and "week_index" in df.columns:
         df = df.rename(columns={"week_index": "week_bin"})
 
-    required = {"site_id", "week_bin"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"Metrics dataset missing columns: {missing}")
-
     return df
 
 
 # -----------------------------
-# Load spatial / suitability data
+# Load spatial data
 # -----------------------------
 def load_weekly_spatial(window: str) -> pd.DataFrame:
-    """
-    Load derived weekly spatial suitability data for a given time window.
-    """
     if window not in _SPATIAL_DATASETS:
-        raise ValueError(
-            f"Unknown window '{window}'. Choose from {list(_SPATIAL_DATASETS)}"
-        )
+        raise ValueError(f"Unknown window '{window}'")
 
     path = DERIVED_DIR / _SPATIAL_DATASETS[window]
-    if not path.exists():
-        raise FileNotFoundError(f"Missing file: {path}")
-
-    df = pd.read_csv(path)
-    df = _normalize_columns(df)
-
-    required = {"site_id", "week_bin"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"Spatial dataset missing columns: {missing}")
+    df = _normalize_columns(pd.read_csv(path))
 
     return df
 
 
 # -----------------------------
-# Unified loader (most common entry point)
+# Unified loader
 # -----------------------------
-def load_with_sites(
-    kind: str,
-    window: str,
-) -> pd.DataFrame:
-    """
-    Load a dataset and join site metadata.
-
-    Parameters
-    ----------
-    kind : "metrics" or "spatial"
-    window : "2024", "last4y", or "full"
-    """
+def load_with_sites(kind: str, window: str) -> pd.DataFrame:
     sites = load_sites()
 
     if kind == "metrics":
@@ -164,26 +147,25 @@ def load_with_sites(
     else:
         raise ValueError("kind must be 'metrics' or 'spatial'")
 
-    # -------------------------------------------------
-    # Enforce authoritative site metadata
-    # -------------------------------------------------
-    for col in ("site_name", "state"):
+    # Drop any stale metadata
+    for col in ("site_name", "state", "latitude", "longitude"):
         if col in df.columns:
             df = df.drop(columns=[col])
 
+    # Merge authoritative metadata
     df = df.merge(
-        sites[["site_id", "site_name", "state"]],
+        sites[
+            ["site_id", "site_name", "state", "latitude", "longitude"]
+        ],
         on="site_id",
         how="left",
         validate="many_to_one",
     )
 
-    # ---- Strong validation with diagnostics ----
-    missing_rows = df[df[["site_name", "state"]].isna().any(axis=1)]
-    if not missing_rows.empty:
-        bad_ids = missing_rows["site_id"].unique().tolist()
+    # Hard validation
+    if df[["site_name", "state", "latitude", "longitude"]].isna().any().any():
         raise ValueError(
-            f"Unmapped site_id values found in data: {bad_ids}"
+            "Some site_id values could not be mapped to sites_fixed.csv"
         )
 
     return df

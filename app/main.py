@@ -8,6 +8,7 @@ import streamlit as st
 
 from app.data_loader import load_with_sites
 from app.plotting import plot_heatmap
+from app.plot_map import plot_suitability_map
 from app.transforms import mean_per_site
 from app.config import (
     DATASETS,
@@ -41,6 +42,15 @@ st.sidebar.toggle(
 )
 
 # -----------------------------
+# VIEW MODE
+# -----------------------------
+view_mode = st.sidebar.radio(
+    "View",
+    options=["Heatmap", "Map"],
+    index=0,
+)
+
+# -----------------------------
 # DATASET
 # -----------------------------
 dataset_key = st.sidebar.selectbox(
@@ -61,40 +71,6 @@ variable_key = st.sidebar.selectbox(
 var_cfg = VARIABLES[variable_key]
 
 # -----------------------------
-# OVERLAY (VARIABLE-AWARE)
-# -----------------------------
-overlay_options = ["none"]
-
-if var_cfg.get("allow_value_overlay", False):
-    overlay_options.append("value")
-
-if var_cfg.get("allow_rank_overlay", False):
-    overlay_options.append("rank")
-
-if var_cfg.get("allow_winner_strip", False):
-    overlay_options.append("winner")
-
-default_overlay = (
-    var_cfg.get("default_overlay")
-    if var_cfg.get("default_overlay") in overlay_options
-    else overlay_options[0]
-)
-
-overlay_key = st.sidebar.selectbox(
-    "Overlay",
-    options=overlay_options,
-    index=overlay_options.index(default_overlay),
-)
-
-# -----------------------------
-# COLORBAR
-# -----------------------------
-show_colorbar = st.sidebar.checkbox(
-    "Show colorbar",
-    value=APP_DEFAULTS.get("show_colorbar", True),
-)
-
-# -----------------------------
 # LOAD DATA (CACHED)
 # -----------------------------
 @st.cache_data
@@ -107,134 +83,176 @@ def load_data(dataset_key):
 df = load_data(dataset_key)
 
 # -----------------------------
-# FOCUS CONTROLS
+# WEEK CONTROLS
 # -----------------------------
 weeks_min = int(df["week_bin"].min())
 weeks_max = int(df["week_bin"].max())
 
-week_range = st.sidebar.slider(
-    "Weeks",
-    min_value=weeks_min,
-    max_value=weeks_max,
-    value=(weeks_min, weeks_max),
-)
-
-active_weeks = set(range(week_range[0], week_range[1] + 1))
-
-all_sites = sorted(df["site_name"].unique())
-
-selected_sites = st.sidebar.multiselect(
-    "Sites",
-    options=["ALL"] + all_sites,
-    default=["ALL"],
-)
+if view_mode == "Map":
+    # Single-week slider
+    selected_week = st.sidebar.slider(
+        "Week",
+        min_value=weeks_min,
+        max_value=weeks_max,
+        value=weeks_min,
+    )
+else:
+    # Range slider for heatmap
+    week_range = st.sidebar.slider(
+        "Weeks",
+        min_value=weeks_min,
+        max_value=weeks_max,
+        value=(weeks_min, weeks_max),
+    )
+    active_weeks = set(range(week_range[0], week_range[1] + 1))
 
 # -----------------------------
-# SITE ORDERING / PRIORITISATION
+# HEATMAP CONTROLS
 # -----------------------------
-st.sidebar.subheader("Site prioritisation")
+if view_mode == "Heatmap":
 
-sort_mode = st.sidebar.radio(
-    "Order sites by",
-    options=[
-        "Alphabetical",
-        "State → Site (A–Z)",
-        "Mean suitability",
-    ],
-    index=0,
-)
+    # -----------------------------
+    # OVERLAY (VARIABLE-AWARE)
+    # -----------------------------
+    overlay_options = ["none"]
 
-summary_df = None
-site_order = None  # 🔑 explicit visual order
+    if var_cfg.get("allow_value_overlay", False):
+        overlay_options.append("value")
 
-if sort_mode == "Mean suitability":
-    top_n = st.sidebar.slider(
-        "Show top N sites",
-        min_value=5,
-        max_value=min(50, len(all_sites)),
-        value=20,
-        step=5,
+    if var_cfg.get("allow_rank_overlay", False):
+        overlay_options.append("rank")
+
+    if var_cfg.get("allow_winner_strip", False):
+        overlay_options.append("winner")
+
+    default_overlay = (
+        var_cfg.get("default_overlay")
+        if var_cfg.get("default_overlay") in overlay_options
+        else overlay_options[0]
     )
 
-    scores = mean_per_site(
-        df=df,
-        value_col=var_cfg["column"],
-        weeks=active_weeks,
-    ).head(top_n)
+    overlay_key = st.sidebar.selectbox(
+        "Overlay",
+        options=overlay_options,
+        index=overlay_options.index(default_overlay),
+    )
 
-    site_order = scores.index.tolist()
-    active_sites = set(site_order)
+    # -----------------------------
+    # COLORBAR
+    # -----------------------------
+    show_colorbar = st.sidebar.checkbox(
+        "Show colorbar",
+        value=APP_DEFAULTS.get("show_colorbar", True),
+    )
+
+    # -----------------------------
+    # SITE ORDERING
+    # -----------------------------
+    all_sites = sorted(df["site_name"].unique())
+
+    st.sidebar.subheader("Site prioritisation")
+
+    sort_mode = st.sidebar.radio(
+        "Order sites by",
+        options=[
+            "Alphabetical",
+            "State → Site (A–Z)",
+            "Mean suitability",
+        ],
+        index=0,
+    )
+
+    summary_df = None
+    site_order = None
+
+    if sort_mode == "Mean suitability":
+        top_n = st.sidebar.slider(
+            "Show top N sites",
+            min_value=5,
+            max_value=min(50, len(all_sites)),
+            value=20,
+            step=5,
+        )
+
+        scores = mean_per_site(
+            df=df,
+            value_col=var_cfg["column"],
+            weeks=active_weeks,
+        ).head(top_n)
+
+        site_order = scores.index.tolist()
+        active_sites = set(site_order)
+
+        summary_df = (
+            df[df["site_name"].isin(site_order)]
+            .loc[df["week_bin"].isin(active_weeks)]
+            .groupby(["state", "site_name"], as_index=False)[var_cfg["column"]]
+            .agg(mean="mean", weeks="count")
+            .sort_values("mean", ascending=False)
+        )
+
+        summary_df["mean"] = summary_df["mean"].round(3)
+
+    elif sort_mode == "State → Site (A–Z)":
+        site_order = (
+            df[["site_name", "state"]]
+            .drop_duplicates()
+            .sort_values(["state", "site_name"])
+            ["site_name"]
+            .tolist()
+        )
+        active_sites = set(site_order)
+
+    else:
+        site_order = sorted(all_sites)
+        active_sites = set(site_order)
+
+    # -----------------------------
+    # HEATMAP PLOT
+    # -----------------------------
+    fig = plot_heatmap(
+        df=df,
+        variable_key=variable_key,
+        overlay_key=overlay_key,
+        active_weeks=active_weeks,
+        active_sites=active_sites,
+        site_order=site_order,
+        show_colorbar=show_colorbar,
+        dataset_label=DATASETS[dataset_key]["label"],
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
 
     # -----------------------------
     # SUMMARY TABLE
     # -----------------------------
-    summary_df = (
-        df[df["site_name"].isin(site_order)]
-        .loc[df["week_bin"].isin(active_weeks)]
-        .groupby(["state", "site_name"], as_index=False)[var_cfg["column"]]
-        .agg(
-            mean="mean",
-            weeks="count",
+    if summary_df is not None:
+        st.subheader("Top sites by mean suitability")
+
+        st.dataframe(
+            summary_df,
+            use_container_width=True,
+            hide_index=True,
         )
-        .sort_values("mean", ascending=False)
-    )
 
-    summary_df["mean"] = summary_df["mean"].round(3)
-
-elif sort_mode == "State → Site (A–Z)":
-    site_order = (
-        df[["site_name", "state"]]
-        .drop_duplicates()
-        .sort_values(["state", "site_name"])
-        ["site_name"]
-        .tolist()
-    )
-
-    active_sites = set(site_order)
-
-else:  # Alphabetical
-    site_order = sorted(all_sites)
-
-    if "ALL" in selected_sites or len(selected_sites) == 0:
-        active_sites = set(site_order)
-    else:
-        active_sites = set(selected_sites)
-        site_order = [s for s in site_order if s in active_sites]
+        st.download_button(
+            label="Download summary (CSV)",
+            data=summary_df.to_csv(index=False),
+            file_name=f"top_sites_{dataset_key}_weeks_{week_range[0]}_{week_range[1]}.csv",
+            mime="text/csv",
+        )
 
 # -----------------------------
-# PLOT
+# MAP VIEW
 # -----------------------------
-fig = plot_heatmap(
-    df=df,
-    variable_key=variable_key,
-    overlay_key=overlay_key,
-    active_weeks=active_weeks,
-    active_sites=active_sites,
-    site_order=site_order,
-    show_colorbar=show_colorbar,
-    dataset_label=DATASETS[dataset_key]["label"],
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-# -----------------------------
-# SUMMARY TABLE + EXPORT
-# -----------------------------
-if summary_df is not None:
-    st.subheader("Top sites by mean suitability")
-
-    st.dataframe(
-        summary_df,
-        use_container_width=True,
-        hide_index=True,
+else:
+    fig = plot_suitability_map(
+        df=df,
+        variable_key=variable_key,
+        week=selected_week,
     )
 
-    st.download_button(
-        label="Download summary (CSV)",
-        data=summary_df.to_csv(index=False),
-        file_name=f"top_sites_{dataset_key}_weeks_{week_range[0]}_{week_range[1]}.csv",
-        mime="text/csv",
-    )
+    st.plotly_chart(fig, use_container_width=True)
 
 # -----------------------------
 # FOOTER
@@ -245,7 +263,7 @@ st.sidebar.markdown(
     """
     <small>
     <b>Site Suitability Explorer</b><br>
-    Version 1.0<br>
+    Version 2.0<br>
     Data: ERA5 (weekly aggregates)<br>
     Suitability: precomputed, config-driven<br>
     Author: Henry Tyson
