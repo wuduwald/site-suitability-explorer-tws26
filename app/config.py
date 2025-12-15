@@ -254,3 +254,39 @@ APP_DEFAULTS = {
     "show_colorbar": True,
     "sort_sites_alphabetically": True,
 }
+
+# -----------------------------
+# ACCESSIBILITY / COLOUR MODES
+# -----------------------------
+
+# Default state for colourblind mode (UI controls this)
+COLORBLIND_MODE_DEFAULT = False
+
+# Classification of existing color scales
+COLOR_SCALE_TYPE = {
+    "rdylgn": "diverging",
+    "rdylbu_r": "diverging",
+    "blues": "sequential",
+    "greens": "sequential",
+}
+
+# Colourblind-friendly overrides
+COLORBLIND_COLOR_OVERRIDE = {
+    "diverging": "Magma",
+    "sequential": "Magma",
+}
+
+
+def get_colorscale(variable_key: str, colourblind_mode: bool = False):
+    """
+    Return the appropriate Plotly colorscale for a variable,
+    respecting colourblind mode when enabled.
+    """
+    var = VARIABLES[variable_key]
+    default_scale = var["colorscale"]
+
+    if not colourblind_mode:
+        return default_scale
+
+    scale_type = COLOR_SCALE_TYPE.get(default_scale, "sequential")
+    return COLORBLIND_COLOR_OVERRIDE[scale_type]

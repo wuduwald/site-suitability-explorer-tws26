@@ -1,8 +1,9 @@
 import numpy as np
 import plotly.graph_objects as go
+import streamlit as st
 
 from app.transforms import build_site_week_matrix
-from app.config import VARIABLES
+from app.config import VARIABLES, get_colorscale
 
 
 def plot_heatmap(
@@ -60,6 +61,14 @@ def plot_heatmap(
     )
 
     # -----------------------------
+    # COLOR SCALE (ACCESSIBILITY-AWARE)
+    # -----------------------------
+    colorscale = get_colorscale(
+        variable_key=variable_key,
+        colourblind_mode=st.session_state.get("colourblind", False),
+    )
+
+    # -----------------------------
     # HEATMAP
     # -----------------------------
     fig.add_trace(
@@ -67,7 +76,7 @@ def plot_heatmap(
             z=z,
             x=weeks,
             y=sites,
-            colorscale=var_cfg.get("colorscale", "RdYlGn"),
+            colorscale=colorscale,
             zmin=var_cfg.get("vmin"),
             zmax=var_cfg.get("vmax"),
             hovertemplate=base_hovertemplate,
