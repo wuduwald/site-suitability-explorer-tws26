@@ -4,6 +4,7 @@ import streamlit as st
 
 from app.transforms import build_site_week_matrix
 from app.config import VARIABLES, get_colorscale
+from app.config import VARIABLES, get_colorscale, STATE_NAME_LOOKUP
 
 
 def plot_heatmap(
