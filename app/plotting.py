@@ -25,10 +25,6 @@ def plot_heatmap(
     sites = list(matrix.index)
     weeks = list(matrix.columns)
 
-    # IMPORTANT: numeric y mapping to avoid multicategory axis
-    site_to_y = {site: i for i, site in enumerate(sites)}
-    y_numeric = list(range(len(sites)))
-
     z = matrix.values
 
     # -----------------------------
@@ -57,33 +53,29 @@ def plot_heatmap(
     )
 
     base_hovertemplate = (
-        "Site: %{customdata[0]}<br>"
+        "Site: %{y}<br>"
         "Week: %{x}<br>"
         f"{var_cfg['label']}: {hover_value}"
         "<extra></extra>"
     )
 
-    # customdata for site names
-    heatmap_customdata = [[site] * len(weeks) for site in sites]
-
     # -----------------------------
-    # HEATMAP
+    # HEATMAP (LOCKED)
     # -----------------------------
     fig.add_trace(
         go.Heatmap(
             z=z,
             x=weeks,
-            y=y_numeric,
-            customdata=heatmap_customdata,
+            y=sites,
             colorscale=var_cfg.get("colorscale", "RdYlGn"),
             zmin=var_cfg.get("vmin"),
             zmax=var_cfg.get("vmax"),
+            hovertemplate=base_hovertemplate,
             colorbar=dict(
                 title=colorbar_title,
-                thickness=18,
+                thickness=16,
                 len=0.9,
             ) if show_colorbar else None,
-            hovertemplate=base_hovertemplate,
         )
     )
 
@@ -91,17 +83,15 @@ def plot_heatmap(
     # VALUE OVERLAY
     # -----------------------------
     if overlay_key == "value":
-        text = [
-            [
-                "" if np.isnan(matrix.loc[site, week])
-                else format(matrix.loc[site, week], value_format)
-                for week in weeks
-            ]
-            for site in sites
-        ]
-
         fig.update_traces(
-            text=text,
+            text=[
+                [
+                    "" if np.isnan(matrix.loc[s, w])
+                    else format(matrix.loc[s, w], value_format)
+                    for w in weeks
+                ]
+                for s in sites
+            ],
             texttemplate="%{text}",
             textfont=dict(color="black", size=10),
         )
@@ -111,66 +101,43 @@ def plot_heatmap(
     # -----------------------------
     if overlay_key == "rank":
         rank_col = var_cfg.get("rank_column")
-
         if rank_col and rank_col in df.columns:
             rank_matrix = build_site_week_matrix(df, rank_col)
 
-            text = [
-                [
-                    "" if np.isnan(rank_matrix.loc[site, week])
-                    else str(int(rank_matrix.loc[site, week]))
-                    for week in weeks
-                ]
-                for site in sites
-            ]
-
-            hover_text = [
-                [
-                    (
-                        f"Site: {site}<br>"
-                        f"Week: {week}<br>"
-                        f"{var_cfg['label']}: "
-                        f"{format(matrix.loc[site, week], value_format)}"
-                        f"{f' {unit}' if unit else ''}<br>"
-                        f"Rank: {int(rank_matrix.loc[site, week])}"
-                    )
-                    if not np.isnan(rank_matrix.loc[site, week])
-                    else ""
-                    for week in weeks
-                ]
-                for site in sites
-            ]
-
             fig.update_traces(
-                text=text,
+                text=[
+                    [
+                        "" if np.isnan(rank_matrix.loc[s, w])
+                        else str(int(rank_matrix.loc[s, w]))
+                        for w in weeks
+                    ]
+                    for s in sites
+                ],
                 texttemplate="%{text}",
                 textfont=dict(color="black", size=11),
-                hovertemplate="%{customdata}<extra></extra>",
-                customdata=hover_text,
             )
 
     # -----------------------------
-    # WINNER OVERLAY (numeric y)
+    # WINNER OVERLAY (LOCKED AXIS)
     # -----------------------------
     if overlay_key == "winner":
         rank_col = var_cfg.get("rank_column")
-
         if rank_col and rank_col in df.columns:
             rank_matrix = build_site_week_matrix(df, rank_col)
 
             win_x, win_y, hover_text = [], [], []
 
-            for week in weeks:
-                for site in rank_matrix.index:
+            for w in weeks:
+                for s in sites:
                     if (
-                        rank_matrix.loc[site, week] == 1
-                        and site in active_sites
-                        and week in active_weeks
+                        rank_matrix.loc[s, w] == 1
+                        and s in active_sites
+                        and w in active_weeks
                     ):
-                        win_x.append(week)
-                        win_y.append(site_to_y[site])
+                        win_x.append(w)
+                        win_y.append(s)
 
-                        val = matrix.loc[site, week]
+                        val = matrix.loc[s, w]
                         val_str = (
                             format(val, value_format)
                             + (f" {unit}" if unit else "")
@@ -179,8 +146,8 @@ def plot_heatmap(
                         )
 
                         hover_text.append(
-                            f"Site: {site}<br>"
-                            f"Week: {week}<br>"
+                            f"Site: {s}<br>"
+                            f"Week: {w}<br>"
                             f"{var_cfg['label']}: {val_str}<br>"
                             "Rank: 1"
                         )
@@ -189,6 +156,7 @@ def plot_heatmap(
                 go.Scatter(
                     x=win_x,
                     y=win_y,
+                    yaxis="y",  # CRITICAL
                     mode="markers",
                     marker=dict(
                         size=16,
@@ -207,17 +175,17 @@ def plot_heatmap(
     shapes = [
         dict(
             type="rect",
-            x0=week - 0.5,
-            x1=week + 0.5,
-            y0=site_to_y[site] - 0.5,
-            y1=site_to_y[site] + 0.5,
+            x0=w - 0.5,
+            x1=w + 0.5,
+            y0=i - 0.5,
+            y1=i + 0.5,
             fillcolor="rgba(120,120,120,0.75)",
             line=dict(width=0),
             layer="above",
         )
-        for site in sites
-        for week in weeks
-        if site not in active_sites or week not in active_weeks
+        for i, s in enumerate(sites)
+        for w in weeks
+        if s not in active_sites or w not in active_weeks
     ]
 
     # -----------------------------
@@ -229,6 +197,9 @@ def plot_heatmap(
 
     fig.update_layout(
         showlegend=False,
+        height=fig_height,
+        autosize=False,
+        margin=dict(l=160, r=60, t=90, b=40),
         title=dict(
             text=(
                 f"{var_cfg['label']}<br>"
@@ -239,23 +210,23 @@ def plot_heatmap(
             x=0.5,
             xanchor="center",
         ),
-        height=fig_height,
-        autosize=False,
         xaxis=dict(
             title="Week",
             showgrid=False,
             zeroline=False,
-            domain=[0.0, 0.94],
+            domain=[0.0, 1.0],
         ),
         yaxis=dict(
             title="Site",
-            tickmode="array",
-            tickvals=y_numeric,
-            ticktext=sites,
+            type="category",
+            categoryorder="array",
+            categoryarray=sites,
+            autorange="reversed",
+            automargin=False,          # 🔒 KEY FIX
+            ticklabelposition="outside",
             showgrid=False,
             zeroline=False,
         ),
-        margin=dict(l=180, r=60, t=90, b=40),
         shapes=shapes,
     )
 
