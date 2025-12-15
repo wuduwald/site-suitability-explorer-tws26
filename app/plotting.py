@@ -40,13 +40,12 @@ def plot_heatmap(
         site_meta = site_meta.sort_values("site_name")
 
     ordered_sites = site_meta["site_name"].tolist()
-
     matrix = matrix.loc[ordered_sites]
 
     sites = ordered_sites
     weeks = list(matrix.columns)
 
-    # 🔑 FIX 1: mask NaNs explicitly
+    # Mask NaNs explicitly (prevents Plotly extrapolation)
     z = np.ma.masked_invalid(matrix.values)
 
     # -----------------------------
@@ -83,20 +82,26 @@ def plot_heatmap(
     # -----------------------------
     # COLOR SCALE (ACCESSIBILITY-AWARE)
     # -----------------------------
+    colourblind = st.session_state.get("colourblind", False)
+
     colorscale = get_colorscale(
         variable_key=variable_key,
-        colourblind_mode=st.session_state.get("colourblind", False),
+        colourblind_mode=colourblind,
     )
 
     # -----------------------------
-    # COLOR RANGE + MIDPOINT
+    # COLOR RANGE
     # -----------------------------
     vmin = var_cfg.get("vmin")
     vmax = var_cfg.get("vmax")
 
+    # 🔑 CRITICAL FIX:
+    # zmid is ONLY valid for diverging palettes.
+    # Magma is sequential → zmid MUST be None.
     zmid = None
-    if vmin is not None and vmax is not None:
-        zmid = (vmin + vmax) / 2
+    if not colourblind:
+        if vmin is not None and vmax is not None:
+            zmid = (vmin + vmax) / 2
 
     # -----------------------------
     # HEATMAP
@@ -110,7 +115,7 @@ def plot_heatmap(
             zmin=vmin,
             zmax=vmax,
             zmid=zmid,
-            connectgaps=False,  # 🔑 FIX 2: prevent colour extrapolation
+            connectgaps=False,
             hovertemplate=base_hovertemplate,
             colorbar=dict(
                 title=colorbar_title,
@@ -138,7 +143,7 @@ def plot_heatmap(
         )
 
     # -----------------------------
-    # RANK OVERLAY (HIDE BOTTOM-RANK ZEROS)
+    # RANK OVERLAY
     # -----------------------------
     if overlay_key == "rank":
         rank_col = var_cfg.get("rank_column")
@@ -170,6 +175,57 @@ def plot_heatmap(
             )
 
     # -----------------------------
+    # WINNER OVERLAY
+    # -----------------------------
+    if overlay_key == "winner":
+        rank_col = var_cfg.get("rank_column")
+        if rank_col and rank_col in df.columns:
+            rank_matrix = build_site_week_matrix(df, rank_col).loc[sites]
+
+            win_x, win_y, hover_text = [], [], []
+
+            for w in weeks:
+                for s in sites:
+                    if (
+                        rank_matrix.loc[s, w] == 1
+                        and s in active_sites
+                        and w in active_weeks
+                    ):
+                        win_x.append(w)
+                        win_y.append(s)
+
+                        val = matrix.loc[s, w]
+                        val_str = (
+                            format(val, value_format)
+                            + (f" {unit}" if unit else "")
+                            if not np.isnan(val)
+                            else "N/A"
+                        )
+
+                        hover_text.append(
+                            f"Site: {s}<br>"
+                            f"Week: {w}<br>"
+                            f"{var_cfg['label']}: {val_str}<br>"
+                            "Rank: 1"
+                        )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=win_x,
+                    y=win_y,
+                    mode="markers",
+                    marker=dict(
+                        size=16,
+                        color="black",
+                        line=dict(color="white", width=2),
+                    ),
+                    text=hover_text,
+                    hovertemplate="%{text}<extra></extra>",
+                    showlegend=False,
+                )
+            )
+
+    # -----------------------------
     # FOCUS MASK
     # -----------------------------
     shapes = [
@@ -193,9 +249,8 @@ def plot_heatmap(
     # -----------------------------
     subtitle = var_cfg.get("description", "")
 
-    time_window = var_cfg.get("time_window")
-    if time_window:
-        subtitle += f" (data from {time_window})"
+    if var_cfg.get("time_window"):
+        subtitle += f" (data from {var_cfg['time_window']})"
 
     if unit:
         subtitle += f" [{unit}]"
@@ -222,7 +277,6 @@ def plot_heatmap(
             title="Week",
             showgrid=False,
             zeroline=False,
-            domain=[0.0, 1.0],
         ),
         yaxis=dict(
             title="Site",
@@ -230,8 +284,6 @@ def plot_heatmap(
             categoryorder="array",
             categoryarray=sites,
             autorange="reversed",
-            automargin=False,
-            ticklabelposition="outside",
             showgrid=False,
             zeroline=False,
         ),

@@ -4,6 +4,8 @@ This file is auto-generated from 03_app_config.ipynb.
 DO NOT edit manually unless you know what you're doing.
 """
 
+import plotly.colors as pc
+
 # -----------------------------
 # DATASETS
 # -----------------------------
@@ -27,13 +29,12 @@ DATASETS = {
 
 DEFAULT_DATASET_KEY = "full"
 
-
 # -----------------------------
 # VARIABLES
 # -----------------------------
 VARIABLES = {
 
-    # --- SUITABILITY (dimensionless, daytime-derived) ---
+    # --- SUITABILITY ---
     "suitability": {
         "column": "pct_viability",
         "rank_column": "suitability_rank",
@@ -90,7 +91,7 @@ VARIABLES = {
         "rank_column": "suitability_wind_rank",
         "label": "Wind Suitability",
         "description": "Percentage of workable wind conditions.",
-        "time_window": None,  # derived from 24-hour wind maxima
+        "time_window": None,
         "unit": None,
         "value_format": ".2f",
         "colorscale": "rdylgn",
@@ -184,12 +185,12 @@ VARIABLES = {
         "default_overlay": "value",
     },
 
-    # --- WIND (m/s, 24-hour) ---
+    # --- WIND (m/s) ---
     "wind_mean": {
         "column": "wind_mean",
         "label": "Mean Wind Speed",
         "description": "Mean wind speed.",
-        "time_window": None,  # 24-hour mean
+        "time_window": None,
         "unit": "m/s",
         "value_format": ".1f",
         "colorscale": "greens",
@@ -205,7 +206,7 @@ VARIABLES = {
         "column": "wind_absmax",
         "label": "Maximum Wind Speed",
         "description": "Worst-case wind speed observed.",
-        "time_window": None,  # 24-hour max
+        "time_window": None,
         "unit": "m/s",
         "value_format": ".1f",
         "colorscale": "greens",
@@ -220,29 +221,15 @@ VARIABLES = {
 
 DEFAULT_VARIABLE_KEY = "suitability"
 
-
 # -----------------------------
 # OVERLAY MODES
 # -----------------------------
 OVERLAY_MODES = {
-    "none": {
-        "label": "No Overlay",
-        "description": "Show heatmap only.",
-    },
-    "value": {
-        "label": "Value",
-        "description": "Display the raw value in each cell.",
-    },
-    "rank": {
-        "label": "Rank",
-        "description": "Display per-week dense rank (1 = best).",
-    },
-    "winner": {
-        "label": "Winner",
-        "description": "Highlight the best site per week.",
-    },
+    "none": {"label": "No Overlay", "description": "Show heatmap only."},
+    "value": {"label": "Value", "description": "Display the raw value in each cell."},
+    "rank": {"label": "Rank", "description": "Display per-week dense rank (1 = best)."},
+    "winner": {"label": "Winner", "description": "Highlight the best site per week."},
 }
-
 
 # -----------------------------
 # APP DEFAULTS
@@ -259,10 +246,8 @@ APP_DEFAULTS = {
 # ACCESSIBILITY / COLOUR MODES
 # -----------------------------
 
-# Default state for colourblind mode (UI controls this)
 COLORBLIND_MODE_DEFAULT = False
 
-# Classification of existing color scales
 COLOR_SCALE_TYPE = {
     "rdylgn": "diverging",
     "rdylbu_r": "diverging",
@@ -270,23 +255,27 @@ COLOR_SCALE_TYPE = {
     "greens": "sequential",
 }
 
-# Colourblind-friendly overrides
+BASE_COLOR_SCALES = {
+    "rdylgn": pc.diverging.RdYlGn,
+    "rdylbu_r": pc.diverging.RdYlBu_r,
+    "blues": pc.sequential.Blues,
+    "greens": pc.sequential.Greens,
+}
+
 COLORBLIND_COLOR_OVERRIDE = {
-    "diverging": "Magma",
-    "sequential": "Magma",
+    "diverging": pc.sequential.Magma,
+    "sequential": pc.sequential.Magma,
 }
 
 
 def get_colorscale(variable_key: str, colourblind_mode: bool = False):
     """
-    Return the appropriate Plotly colorscale for a variable,
-    respecting colourblind mode when enabled.
+    Always return a TRUE Plotly colourscale array.
     """
-    var = VARIABLES[variable_key]
-    default_scale = var["colorscale"]
+    key = VARIABLES[variable_key]["colorscale"]
 
-    if not colourblind_mode:
-        return default_scale
+    if colourblind_mode:
+        scale_type = COLOR_SCALE_TYPE.get(key, "sequential")
+        return COLORBLIND_COLOR_OVERRIDE[scale_type]
 
-    scale_type = COLOR_SCALE_TYPE.get(default_scale, "sequential")
-    return COLORBLIND_COLOR_OVERRIDE[scale_type]
+    return BASE_COLOR_SCALES.get(key, pc.sequential.Viridis)
