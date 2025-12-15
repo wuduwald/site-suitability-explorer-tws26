@@ -34,7 +34,7 @@ st.session_state.setdefault("colourblind", COLORBLIND_MODE_DEFAULT)
 st.sidebar.toggle(
     "Bruno-Mode 😎",
     key="colourblind",
-    help="Uses a colourblind-friendly palette (Magma)"
+    help="Provides Mr. Ando with a colourblind friendly palette."
 )
 
 # -----------------------------
