@@ -75,18 +75,12 @@ var_cfg = VARIABLES[variable_key]
 # -----------------------------
 @st.cache_data
 def load_data(dataset_key, _schema_version: int = 3):
-    """
-    Cached loader for spatial data.
-
-    _schema_version is used ONLY to invalidate Streamlit Cloud cache
-    when the dataframe schema changes.
-    """
     return load_with_sites(
         kind="spatial",
         window=dataset_key,
     )
 
-df = load_data(dataset_key, _schema_version=3)
+df = load_data(dataset_key)
 
 # -----------------------------
 # WEEK CONTROLS
@@ -95,7 +89,6 @@ weeks_min = int(df["week_bin"].min())
 weeks_max = int(df["week_bin"].max())
 
 if view_mode == "Map":
-    # Single-week slider
     selected_week = st.sidebar.slider(
         "Week",
         min_value=weeks_min,
@@ -103,7 +96,6 @@ if view_mode == "Map":
         value=weeks_min,
     )
 else:
-    # Range slider for heatmap
     week_range = st.sidebar.slider(
         "Weeks",
         min_value=weeks_min,
@@ -113,21 +105,19 @@ else:
     active_weeks = set(range(week_range[0], week_range[1] + 1))
 
 # -----------------------------
-# HEATMAP CONTROLS
+# HEATMAP VIEW
 # -----------------------------
 if view_mode == "Heatmap":
 
     # -----------------------------
-    # OVERLAY (VARIABLE-AWARE)
+    # OVERLAY
     # -----------------------------
     overlay_options = ["none"]
 
     if var_cfg.get("allow_value_overlay", False):
         overlay_options.append("value")
-
     if var_cfg.get("allow_rank_overlay", False):
         overlay_options.append("rank")
-
     if var_cfg.get("allow_winner_strip", False):
         overlay_options.append("winner")
 
@@ -143,19 +133,30 @@ if view_mode == "Heatmap":
         index=overlay_options.index(default_overlay),
     )
 
-    # -----------------------------
-    # COLORBAR
-    # -----------------------------
     show_colorbar = st.sidebar.checkbox(
         "Show colorbar",
         value=APP_DEFAULTS.get("show_colorbar", True),
     )
 
     # -----------------------------
-    # SITE ORDERING
+    # SITE SELECTION (RESTORED ✅)
     # -----------------------------
     all_sites = sorted(df["site_name"].unique())
 
+    selected_sites = st.sidebar.multiselect(
+        "Sites",
+        options=["ALL"] + all_sites,
+        default=["ALL"],
+    )
+
+    if "ALL" in selected_sites or not selected_sites:
+        active_sites = set(all_sites)
+    else:
+        active_sites = set(selected_sites)
+
+    # -----------------------------
+    # SITE ORDERING
+    # -----------------------------
     st.sidebar.subheader("Site prioritisation")
 
     sort_mode = st.sidebar.radio(
@@ -207,14 +208,13 @@ if view_mode == "Heatmap":
             ["site_name"]
             .tolist()
         )
-        active_sites = set(site_order)
+        site_order = [s for s in site_order if s in active_sites]
 
     else:
-        site_order = sorted(all_sites)
-        active_sites = set(site_order)
+        site_order = sorted(active_sites)
 
     # -----------------------------
-    # HEATMAP PLOT
+    # HEATMAP
     # -----------------------------
     fig = plot_heatmap(
         df=df,
@@ -234,19 +234,7 @@ if view_mode == "Heatmap":
     # -----------------------------
     if summary_df is not None:
         st.subheader("Top sites by mean suitability")
-
-        st.dataframe(
-            summary_df,
-            use_container_width=True,
-            hide_index=True,
-        )
-
-        st.download_button(
-            label="Download summary (CSV)",
-            data=summary_df.to_csv(index=False),
-            file_name=f"top_sites_{dataset_key}_weeks_{week_range[0]}_{week_range[1]}.csv",
-            mime="text/csv",
-        )
+        st.dataframe(summary_df, use_container_width=True, hide_index=True)
 
 # -----------------------------
 # MAP VIEW
@@ -254,7 +242,7 @@ if view_mode == "Heatmap":
 else:
     fig = plot_suitability_map(
         df=df,
-        variable_key=variable_key,
+        variable_key="suitability",  # map uses overall suitability only
         week=selected_week,
     )
 
