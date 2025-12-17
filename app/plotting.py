@@ -14,7 +14,7 @@ def plot_heatmap(
     active_sites: set,
     show_colorbar: bool = True,
     dataset_label: str | None = None,
-    site_order: list[str] | None = None,  # ordering controlled by main.py
+    site_order: list[str] | None = None,
 ):
     var_cfg = VARIABLES[variable_key]
 
@@ -23,12 +23,12 @@ def plot_heatmap(
     value_format = var_cfg.get("value_format", ".2f")
 
     # -----------------------------
-    # BUILD MATRIX
+    # BUILD SITE × WEEK MATRIX
     # -----------------------------
     matrix = build_site_week_matrix(df, value_col)
 
     # -----------------------------
-    # APPLY SITE ORDER (IF PROVIDED)
+    # APPLY SITE ORDER (FROM main.py)
     # -----------------------------
     if site_order is not None:
         sites = [s for s in site_order if s in matrix.index]
@@ -40,19 +40,20 @@ def plot_heatmap(
     z = matrix.values.astype(float)
 
     # -----------------------------
-    # SITE → STATE NAME LOOKUP
+    # SITE → STATE (FULL NAME)
     # -----------------------------
-    site_state = (
+    site_state_code = (
         df[["site_name", "state"]]
         .drop_duplicates()
         .set_index("site_name")["state"]
     )
 
     site_state_name = {
-        s: STATE_NAME_LOOKUP.get(site_state.get(s), site_state.get(s))
+        s: STATE_NAME_LOOKUP.get(site_state_code.get(s), site_state_code.get(s))
         for s in sites
     }
 
+    # customdata needs same shape as z
     customdata = [
         [site_state_name.get(site) for _ in weeks]
         for site in sites
@@ -65,37 +66,10 @@ def plot_heatmap(
     fig = go.Figure()
 
     # -----------------------------
-    # COLORBAR TITLE
-    # -----------------------------
-    colorbar_title = (
-        f'{var_cfg["label"]} ({unit})'
-        if unit and show_colorbar
-        else var_cfg["label"]
-    )
-
-    # -----------------------------
-    # BASE HOVER
-    # -----------------------------
-    hover_value = (
-        f"%{{z:{value_format}}} {unit}"
-        if unit
-        else f"%{{z:{value_format}}}"
-    )
-
-    base_hovertemplate = (
-        "Site: %{y}<br>"
-        "State: %{customdata}<br>"
-        "Week: %{x}<br>"
-        f"{var_cfg['label']}: {hover_value}"
-        "<extra></extra>"
-    )
-
-    # -----------------------------
     # COLOR SCALE (ACCESSIBILITY)
     # -----------------------------
     colourblind = st.session_state.get("colourblind", False)
     colorscale = get_colorscale(variable_key, colourblind)
-
     overlay_text_color = "white" if colourblind else "black"
 
     # -----------------------------
@@ -107,6 +81,23 @@ def plot_heatmap(
         (vmin + vmax) / 2
         if (not colourblind and vmin is not None and vmax is not None)
         else None
+    )
+
+    # -----------------------------
+    # HOVER TEMPLATE
+    # -----------------------------
+    hover_value = (
+        f"%{{z:{value_format}}} {unit}"
+        if unit
+        else f"%{{z:{value_format}}}"
+    )
+
+    hovertemplate = (
+        "Site: %{y}<br>"
+        "State: %{customdata}<br>"
+        "Week: %{x}<br>"
+        f"{var_cfg['label']}: {hover_value}"
+        "<extra></extra>"
     )
 
     # -----------------------------
@@ -123,9 +114,13 @@ def plot_heatmap(
             zmax=vmax,
             zmid=zmid,
             connectgaps=False,
-            hovertemplate=base_hovertemplate,
+            hovertemplate=hovertemplate,
             colorbar=dict(
-                title=colorbar_title,
+                title=(
+                    f"{var_cfg['label']} ({unit})"
+                    if unit and show_colorbar
+                    else var_cfg["label"]
+                ),
                 thickness=16,
                 len=0.9,
             ) if show_colorbar else None,
@@ -150,7 +145,7 @@ def plot_heatmap(
         )
 
     # -----------------------------
-    # RANK OVERLAY (HIDE BOTTOM ZEROES)
+    # RANK OVERLAY (HIDE WORST ZEROES)
     # -----------------------------
     if overlay_key == "rank":
         rank_col = var_cfg.get("rank_column")
@@ -239,13 +234,31 @@ def plot_heatmap(
                 )
 
     # -----------------------------
+    # FOCUS MASK (INACTIVE WEEKS / SITES)
+    # -----------------------------
+    shapes = [
+        dict(
+            type="rect",
+            x0=w - 0.5,
+            x1=w + 0.5,
+            y0=i - 0.5,
+            y1=i + 0.5,
+            fillcolor="rgba(120,120,120,0.75)",
+            line=dict(width=0),
+            layer="above",
+        )
+        for i, s in enumerate(sites)
+        for w in weeks
+        if s not in active_sites or w not in active_weeks
+    ]
+
+    # -----------------------------
     # TITLE + LAYOUT
     # -----------------------------
     subtitle = var_cfg.get("description", "")
 
-    time_window = var_cfg.get("time_window")
-    if time_window:
-        subtitle += f" (data from {time_window})"
+    if var_cfg.get("time_window"):
+        subtitle += f" (data from {var_cfg['time_window']})"
 
     if unit:
         subtitle += f" [{unit}]"
@@ -268,13 +281,8 @@ def plot_heatmap(
             x=0.5,
             xanchor="center",
         ),
-        xaxis=dict(
-            title="Week",
-            showgrid=False,
-            zeroline=False,
-        ),
+        xaxis=dict(showgrid=False, zeroline=False),
         yaxis=dict(
-            title="Site",
             type="category",
             categoryorder="array",
             categoryarray=sites,
@@ -282,6 +290,7 @@ def plot_heatmap(
             showgrid=False,
             zeroline=False,
         ),
+        shapes=shapes,
     )
 
     return fig
