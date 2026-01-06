@@ -74,7 +74,7 @@ var_cfg = VARIABLES[variable_key]
 # LOAD DATA (CACHED)
 # -----------------------------
 @st.cache_data
-def load_data(dataset_key, _schema_version: int = 3):
+def load_data(dataset_key, _schema_version: int = 4):
     return load_with_sites(
         kind="spatial",
         window=dataset_key,
