@@ -11,19 +11,24 @@ import plotly.colors as pc
 # -----------------------------
 DATASETS = {
     "full": {
-        "label": "2018–2024 (Full History)",
-        "path": "/content/data/derived/weekly_spatial_full_history.csv",
-        "description": "All available historical data (2018–2024). Best for long-term patterns.",
+        "label": "2018–2025 (Full History)",
+        "path": "/content/data/derived/weekly_spatial_full_history_2025.csv",
+        "description": "All available historical data (2018–2025). Best for long-term patterns.",
     },
     "last4y": {
-        "label": "2021–2024 (Last 4 Years)",
-        "path": "/content/data/derived/weekly_spatial_last4y.csv",
-        "description": "Recent multi-year view. Balances recency and stability.",
+        "label": "2022–2025 (Last 4 Years)",
+        "path": "/content/data/derived/weekly_spatial_last4y_2025.csv",
+        "description": "Recent multi-year view (2022–2025). Balances recency and stability.",
     },
     "2024": {
         "label": "2024 Only",
         "path": "/content/data/derived/weekly_spatial_2024.csv",
         "description": "Single-year view. Best for short-term planning and validation.",
+    },
+    "2025": {
+        "label": "2025 Only",
+        "path": "/content/data/derived/weekly_spatial_2025.csv",
+        "description": "Single-year view for the latest year (2025).",
     },
 }
 

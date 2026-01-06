@@ -94,14 +94,16 @@ def load_sites() -> pd.DataFrame:
 # -----------------------------
 _METRIC_DATASETS = {
     "2024": "Weekly_Master_2024.csv",
-    "last4y": "Weekly_Master_4y.csv",
-    "full": "Weekly_Master_2018_2024.csv",
+    "2025": "Weekly_Master_2025.csv",
+    "last4y": "Weekly_Master_4y_2025.csv",
+    "full": "Weekly_Master_2018_2025.csv",
 }
 
 _SPATIAL_DATASETS = {
     "2024": "weekly_spatial_2024.csv",
-    "last4y": "weekly_spatial_last4y.csv",
-    "full": "weekly_spatial_full_history.csv",
+    "2025": "weekly_spatial_2025.csv",
+    "last4y": "weekly_spatial_last4y_2025.csv",
+    "full": "weekly_spatial_full_history_2025.csv",
 }
 
 
